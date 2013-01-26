@@ -36,6 +36,8 @@ AboutDialog::AboutDialog(QWidget *parent): QDialog(parent)
             "<p align=\"center\">Copyright 2008-2013 Thorbj&oslash;rn Lindeijer<br>(see the AUTHORS file for a full list of contributors)</p>\n"
             "<p align=\"center\">You may modify and redistribute this program under the terms of the GPL (version 2 or later). "
             "A copy of the GPL is contained in the 'COPYING' file distributed with Tiled.</p>\n"
+            "<p align=\"center\"><b>You are using a modified version!</b></p> <p align=\"center\">Visit site below for original!</p>"
+            "<p align=\"center\">Modifications by:  Justin Anderson</p>"
             "<p align=\"center\"><a href=\"http://www.mapeditor.org/\">http://www.mapeditor.org/</a></p>\n")
             .arg(QApplication::applicationVersion());
 

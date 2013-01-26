@@ -659,10 +659,11 @@ void MainWindow::openFile()
     filter += QLatin1String(";;");
 
     QString selectedFilter = tr("Tiled map files (*.tmx)");
-    filter += selectedFilter;
-
     selectedFilter = mSettings.value(QLatin1String("lastUsedOpenFilter"),
                                      selectedFilter).toString();
+    filter += selectedFilter;
+
+
 
     const PluginManager *pm = PluginManager::instance();
     QList<MapReaderInterface*> readers = pm->interfaces<MapReaderInterface>();
@@ -727,7 +728,11 @@ bool MainWindow::saveFile()
 bool MainWindow::saveFileAs()
 {
     const QString tmxfilter = tr("Tiled map files (*.tmx)");
+
     QString filter = QString(tmxfilter);
+    filter += QLatin1String(";;");
+    const QString xmlfilter = tr("XML Format (*.xml)");
+    filter += QString(xmlfilter);
     PluginManager *pm = PluginManager::instance();
     foreach (const Plugin &plugin, pm->plugins()) {
         const MapWriterInterface *writer = qobject_cast<MapWriterInterface*>
