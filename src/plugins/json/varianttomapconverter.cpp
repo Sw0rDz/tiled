@@ -58,6 +58,13 @@ Map *VariantToMapConverter::toMap(const QVariant &variant,
 
     mMap->setProperties(toProperties(variantMap["properties"]));
 
+    const QString bgColor = variantMap["backgroundcolor"].toString();
+    if (!bgColor.isEmpty())
+#if QT_VERSION >= 0x040700
+        if (QColor::isValidColor(bgColor))
+#endif
+            mMap->setBackgroundColor(QColor(bgColor));
+
     foreach (const QVariant &tilesetVariant, variantMap["tilesets"].toList()) {
         Tileset *tileset = toTileset(tilesetVariant);
         if (!tileset) {
@@ -143,6 +150,36 @@ Tileset *VariantToMapConverter::toTileset(const QVariant &variant)
         if (tileIndex >= 0 && tileIndex < tileset->tileCount()) {
             const Properties properties = toProperties(propertiesVar);
             tileset->tileAt(tileIndex)->setProperties(properties);
+        }
+    }
+
+    // Read terrains
+    QVariantList terrainsVariantList = variantMap["terrains"].toList();
+    for (int i = 0; i < terrainsVariantList.count(); ++i) {
+        QVariantMap terrainMap = terrainsVariantList[i].toMap();
+        tileset->addTerrain(terrainMap["name"].toString(),
+                            terrainMap["tile"].toInt());
+    }
+
+    // Read tile terrain information
+    const QVariantMap tilesVariantMap = variantMap["tiles"].toMap();
+    for (it = tilesVariantMap.begin(); it != tilesVariantMap.end(); ++it) {
+        bool ok;
+        const int tileIndex = it.key().toInt();
+        Tile *tile = tileset->tileAt(tileIndex);
+        if (tileIndex >= 0 && tileIndex < tileset->tileCount()) {
+            const QVariantMap tileVar = it.value().toMap();
+            QList<QVariant> terrains = tileVar["terrain"].toList();
+            if (terrains.count() == 4) {
+                for (int i = 0; i < 4; ++i) {
+                    int terrainID = terrains.at(i).toInt(&ok);
+                    if (ok && terrainID >= 0 && terrainID < tileset->terrainCount())
+                        tile->setCornerTerrain(i, terrainID);
+                }
+            }
+            float terrainProbability = tileVar["probability"].toFloat(&ok);
+            if (ok)
+                tile->setTerrainProbability(terrainProbability);
         }
     }
 
@@ -275,6 +312,7 @@ ObjectGroup *VariantToMapConverter::toObjectGroup(const QVariantMap &variantMap)
         const int y = objectVariantMap["y"].toInt();
         const int width = objectVariantMap["width"].toInt();
         const int height = objectVariantMap["height"].toInt();
+        const qreal rotation = objectVariantMap["rotation"].toReal();
 
         const QPointF pos = toTile(x, y);
         const QPointF size = toTile(width, height);
@@ -282,11 +320,11 @@ ObjectGroup *VariantToMapConverter::toObjectGroup(const QVariantMap &variantMap)
         MapObject *object = new MapObject(name, type,
                                           pos,
                                           QSizeF(size.x(), size.y()));
+        object->setRotation(rotation);
 
         if (gid) {
             bool ok;
-            const Cell cell = mGidMapper.gidToCell(gid, ok);
-            object->setTile(cell.tile);
+            object->setCell(mGidMapper.gidToCell(gid, ok));
         }
 
         if (objectVariantMap.contains("visible"))

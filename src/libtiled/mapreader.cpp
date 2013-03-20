@@ -58,6 +58,8 @@ class MapReaderPrivate
 {
     Q_DECLARE_TR_FUNCTIONS(MapReader)
 
+    friend class Tiled::MapReader;
+
 public:
     MapReaderPrivate(MapReader *mapReader):
         p(mapReader),
@@ -115,6 +117,7 @@ private:
     QString mError;
     QString mPath;
     Map *mMap;
+    QList<Tileset*> mCreatedTilesets;
     GidMapper mGidMapper;
     bool mReadingExternalTileset;
 
@@ -218,6 +221,7 @@ Map *MapReaderPrivate::readMap()
     }
 
     mMap = new Map(orientation, mapWidth, mapHeight, tileWidth, tileHeight);
+    mCreatedTilesets.clear();
 
     QStringRef bgColorString = atts.value(QLatin1String("backgroundcolor"));
     if (!bgColorString.isEmpty())
@@ -241,7 +245,8 @@ Map *MapReaderPrivate::readMap()
     // Clean up in case of error
     if (xml.hasError()) {
         // The tilesets are not owned by the map
-        qDeleteAll(mMap->tilesets());
+        qDeleteAll(mCreatedTilesets);
+        mCreatedTilesets.clear();
 
         delete mMap;
         mMap = 0;
@@ -280,6 +285,8 @@ Tileset *MapReaderPrivate::readTileset()
         } else {
             tileset = new Tileset(name, tileWidth, tileHeight,
                                   tileSpacing, margin);
+
+            mCreatedTilesets.append(tileset);
 
             while (xml.readNextStartElement()) {
                 if (xml.name() == QLatin1String("tile")) {
@@ -770,12 +777,15 @@ MapObject *MapReaderPrivate::readObject()
 
     MapObject *object = new MapObject(name, type, pos, QSizeF(size.x(),
                                                               size.y()));
-    if (gid) {
-        const Cell cell = cellForGid(gid);
-        object->setTile(cell.tile);
-    }
 
     bool ok;
+    const qreal rotation = atts.value(QLatin1String("rotation")).toString().toDouble(&ok);
+    if (ok)
+        object->setRotation(rotation);
+
+    if (gid)
+        object->setCell(cellForGid(gid));
+
     const int visible = visibleRef.toString().toInt(&ok);
     if (ok)
         object->setVisible(visible);
@@ -941,8 +951,12 @@ Tileset *MapReader::readExternalTileset(const QString &source,
                                         QString *error)
 {
     MapReader reader;
+
     Tileset *tileset = reader.readTileset(source);
     if (!tileset)
         *error = reader.errorString();
+    else
+        d->mCreatedTilesets.append(tileset);
+
     return tileset;
 }

@@ -24,18 +24,24 @@
 
 #include "mapdocument.h"
 #include "mapobject.h"
+#include "mapobjectmodel.h"
 #include "maprenderer.h"
 #include "mapscene.h"
 #include "objectgroup.h"
 #include "objectgroupitem.h"
+#include "objectpropertiesdialog.h"
 #include "preferences.h"
 #include "resizemapobject.h"
+#include "tile.h"
 
 #include <QApplication>
 #include <QGraphicsSceneMouseEvent>
 #include <QPainter>
 #include <QPalette>
 #include <QStyleOptionGraphicsItem>
+#include <QVector2D>
+
+#include <cmath>
 
 using namespace Tiled;
 using namespace Tiled::Internal;
@@ -139,8 +145,11 @@ QVariant ResizeHandle::itemChange(GraphicsItemChange change,
 
         if (change == ItemPositionChange) {
             bool snapToGrid = Preferences::instance()->snapToGrid();
-            if (QApplication::keyboardModifiers() & Qt::ControlModifier)
+            bool snapToFineGrid = Preferences::instance()->snapToFineGrid();
+            if (QApplication::keyboardModifiers() & Qt::ControlModifier) {
                 snapToGrid = !snapToGrid;
+                snapToFineGrid = false;
+            }
 
             // Calculate the absolute pixel position
             const QPointF itemPos = mMapObjectItem->pos();
@@ -152,7 +161,11 @@ QVariant ResizeHandle::itemChange(GraphicsItemChange change,
             tileCoords -= objectPos;
             tileCoords.setX(qMax(tileCoords.x(), qreal(0)));
             tileCoords.setY(qMax(tileCoords.y(), qreal(0)));
-            if (snapToGrid)
+            if (snapToFineGrid) {
+                int gridFine = Preferences::instance()->gridFine();
+                tileCoords = (tileCoords * gridFine).toPoint();
+                tileCoords /= gridFine;
+            } else if (snapToGrid)
                 tileCoords = tileCoords.toPoint();
             tileCoords += objectPos;
 
@@ -163,7 +176,7 @@ QVariant ResizeHandle::itemChange(GraphicsItemChange change,
             const QPointF newPos = value.toPointF() + mMapObjectItem->pos();
             QPointF tileCoords = renderer->pixelToTileCoords(newPos);
             tileCoords -= mMapObjectItem->mapObject()->position();
-            mMapObjectItem->resize(QSizeF(tileCoords.x(), tileCoords.y()));
+            mMapObjectItem->resizeObject(QSizeF(tileCoords.x(), tileCoords.y()));
         }
     }
 
@@ -209,10 +222,13 @@ void MapObjectItem::syncWithMapObject()
     MapRenderer *renderer = mMapDocument->renderer();
     const QPointF pixelPos = renderer->tileToPixelCoords(mObject->position());
     QRectF bounds = renderer->boundingRect(mObject);
+
     bounds.translate(-pixelPos);
 
     setPos(pixelPos);
     setZValue(pixelPos.y());
+    setRotation(mObject->rotation());
+    setTransformOriginPoint(objectCenter());
 
     mSyncing = true;
 
@@ -237,7 +253,7 @@ void MapObjectItem::setEditable(bool editable)
 
     mIsEditable = editable;
 
-    const bool handlesVisible = mIsEditable && !mObject->tile();
+    const bool handlesVisible = mIsEditable && mObject->cell().isEmpty();
     mResizeHandle->setVisible(handlesVisible && mObject->polygon().isEmpty());
 
     if (mIsEditable)
@@ -276,6 +292,7 @@ void MapObjectItem::paint(QPainter *painter,
         QLineF bottom(mBoundingRect.bottomLeft(), mBoundingRect.bottomRight());
 
         QPen dashPen(Qt::DashLine);
+        dashPen.setWidth(0);
         dashPen.setDashOffset(qMax(qreal(0), x()));
         painter->setPen(dashPen);
         painter->drawLines(QVector<QLineF>() << top << bottom);
@@ -286,26 +303,50 @@ void MapObjectItem::paint(QPainter *painter,
     }
 }
 
-void MapObjectItem::resize(const QSizeF &size)
+QPointF MapObjectItem::objectCenter() const
 {
+    if (!mObject->cell().isEmpty()) {
+        const QSize tileSize = mObject->cell().tile->size();
+        return QPointF(tileSize.width() / 2,
+                       -tileSize.height() / 2);
+    }
+
+    QPointF center;
+
+    switch (mObject->shape()) {
+    case MapObject::Rectangle:
+    case MapObject::Ellipse:
+        center = mObject->bounds().center();
+        break;
+    case MapObject::Polygon:
+    case MapObject::Polyline:
+        center = mObject->position() +
+                mObject->polygon().boundingRect().center();
+        break;
+    }
+
+    const MapRenderer *renderer = mMapDocument->renderer();
+    const QPointF pos = renderer->tileToPixelCoords(mObject->position());
+    return renderer->tileToPixelCoords(center) - pos;
+}
+
+void MapObjectItem::resizeObject(const QSizeF &size)
+{
+    // Not using the MapObjectModel because it is also used during object
+    // creation, when the object is not actually part of the map yet.
     mObject->setSize(size);
     syncWithMapObject();
+}
+
+void MapObjectItem::setObjectRotation(qreal angle)
+{
+    mMapDocument->mapObjectModel()->setObjectRotation(mObject, angle);
 }
 
 void MapObjectItem::setPolygon(const QPolygonF &polygon)
 {
     mObject->setPolygon(polygon);
     syncWithMapObject();
-}
-
-MapDocument *MapObjectItem::mapDocument() const
-{
-    return mMapDocument;
-}
-
-QColor MapObjectItem::color() const
-{
-    return mColor;
 }
 
 QColor MapObjectItem::objectColor(const MapObject *object)
@@ -323,4 +364,16 @@ QColor MapObjectItem::objectColor(const MapObject *object)
 
     // Fallback color
     return Qt::gray;
+}
+
+void MapObjectItem::mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event)
+{
+    if (!mIsEditable) {
+        event->ignore();
+        return;
+    }
+
+    ObjectPropertiesDialog propertiesDialog(mMapDocument, mObject,
+                                            event->widget());
+    propertiesDialog.exec();
 }

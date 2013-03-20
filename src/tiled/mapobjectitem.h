@@ -80,10 +80,20 @@ public:
                QWidget *widget = 0);
 
     /**
-     * Resizes this map object item and the associated map object. The
-     * \a size is given in tiles.
+     * Returns the center of the object as the distance in pixels from its
+     * position.
      */
-    void resize(const QSizeF &size);
+    QPointF objectCenter() const;
+
+    /**
+     * Resizes the associated map object. The \a size is given in tiles.
+     */
+    void resizeObject(const QSizeF &size);
+
+    /**
+     * Sets the rotation of the associated map object.
+     */
+    void setObjectRotation(qreal angle);
 
     /**
      * Sets a new polygon on the associated object.
@@ -98,9 +108,12 @@ public:
      */
     static QColor objectColor(const MapObject *object);
 
+protected:
+    void mouseDoubleClickEvent(QGraphicsSceneMouseEvent *event);
+
 private:
-    MapDocument *mapDocument() const;
-    QColor color() const;
+    MapDocument *mapDocument() const { return mMapDocument; }
+    QColor color() const { return mColor; }
 
     MapObject *mObject;
     MapDocument *mMapDocument;
@@ -115,7 +128,6 @@ private:
     ResizeHandle *mResizeHandle;
 
     friend class Handle;
-    friend class PointHandle;
     friend class ResizeHandle;
 };
 

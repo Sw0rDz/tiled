@@ -168,18 +168,22 @@ MainWindow::MainWindow(QWidget *parent, Qt::WindowFlags flags)
     UndoDock *undoDock = new UndoDock(undoGroup, this);
 
     addDockWidget(Qt::RightDockWidgetArea, mLayerDock);
-    addDockWidget(Qt::RightDockWidgetArea, undoDock);
-    addDockWidget(Qt::RightDockWidgetArea, mMapsDock);
+    addDockWidget(Qt::LeftDockWidgetArea, undoDock);
+    addDockWidget(Qt::LeftDockWidgetArea, mMapsDock);
     addDockWidget(Qt::RightDockWidgetArea, mObjectsDock);
+    addDockWidget(Qt::RightDockWidgetArea, mMiniMapDock);
     addDockWidget(Qt::RightDockWidgetArea, mTerrainDock);
     addDockWidget(Qt::RightDockWidgetArea, mTilesetDock);
-    addDockWidget(Qt::RightDockWidgetArea, mMiniMapDock);
 
-
-    tabifyDockWidget(undoDock, mObjectsDock);
+    tabifyDockWidget(mMiniMapDock, mObjectsDock);
     tabifyDockWidget(mObjectsDock, mLayerDock);
-    tabifyDockWidget(mLayerDock, mMapsDock);
     tabifyDockWidget(mTerrainDock, mTilesetDock);
+    tabifyDockWidget(undoDock, mMapsDock);
+
+    // These dock widgets may not be immediately useful to many people, so
+    // they are hidden by default.
+    undoDock->setVisible(false);
+    mMapsDock->setVisible(false);
 
     statusBar()->addPermanentWidget(mZoomComboBox);
 
@@ -199,6 +203,7 @@ MainWindow::MainWindow(QWidget *parent, Qt::WindowFlags flags)
     mUi->actionShowGrid->setChecked(preferences->showGrid());
     mUi->actionShowTileObjectOutlines->setChecked(preferences->showTileObjectOutlines());
     mUi->actionSnapToGrid->setChecked(preferences->snapToGrid());
+    mUi->actionSnapToFineGrid->setChecked(preferences->snapToFineGrid());
     mUi->actionHighlightCurrentLayer->setChecked(preferences->highlightCurrentLayer());
 
     QShortcut *reloadTilesetsShortcut = new QShortcut(QKeySequence(tr("Ctrl+T")), this);
@@ -284,6 +289,8 @@ MainWindow::MainWindow(QWidget *parent, Qt::WindowFlags flags)
             preferences, SLOT(setShowTileObjectOutlines(bool)));
     connect(mUi->actionSnapToGrid, SIGNAL(toggled(bool)),
             preferences, SLOT(setSnapToGrid(bool)));
+    connect(mUi->actionSnapToFineGrid, SIGNAL(toggled(bool)),
+            preferences, SLOT(setSnapToFineGrid(bool)));
     connect(mUi->actionHighlightCurrentLayer, SIGNAL(toggled(bool)),
             preferences, SLOT(setHighlightCurrentLayer(bool)));
     connect(mUi->actionZoomIn, SIGNAL(triggered()), SLOT(zoomIn()));
@@ -423,10 +430,10 @@ MainWindow::MainWindow(QWidget *parent, Qt::WindowFlags flags)
             mDocumentManager, SLOT(switchToRightDocument()));
 
 
-    new QShortcut(tr("X"), this, SLOT(flipStampHorizontally()));
-    new QShortcut(tr("Y"), this, SLOT(flipStampVertically()));
-    new QShortcut(tr("Z"), this, SLOT(rotateStampRight()));
-    new QShortcut(tr("Shift+Z"), this, SLOT(rotateStampLeft()));
+    new QShortcut(tr("X"), this, SLOT(flipHorizontally()));
+    new QShortcut(tr("Y"), this, SLOT(flipVertically()));
+    new QShortcut(tr("Z"), this, SLOT(rotateRight()));
+    new QShortcut(tr("Shift+Z"), this, SLOT(rotateLeft()));
 
     QShortcut *copyPositionShortcut = new QShortcut(tr("Alt+C"), this);
     connect(copyPositionShortcut, SIGNAL(activated()),
@@ -1014,8 +1021,13 @@ void MainWindow::paste()
             const MapRenderer *renderer = mMapDocument->renderer();
             const QPointF scenePos = view->mapToScene(viewPos);
             QPointF insertPos = renderer->pixelToTileCoords(scenePos);
-            if (Preferences::instance()->snapToGrid())
+            if (Preferences::instance()->snapToFineGrid()) {
+                int gridFine = Preferences::instance()->gridFine();
+                insertPos = (insertPos * gridFine).toPoint();
+                insertPos /= gridFine;
+            } else if (Preferences::instance()->snapToGrid()) {
                 insertPos = insertPos.toPoint();
+            }
             const QPointF offset = insertPos - center;
 
             QUndoStack *undoStack = mMapDocument->undoStack();
@@ -1366,39 +1378,29 @@ void MainWindow::editLayerProperties()
         PropertiesDialog::showDialogFor(layer, mMapDocument, this);
 }
 
-void MainWindow::flipStampHorizontally()
+void MainWindow::flip(FlipDirection direction)
 {
-    if (TileLayer *stamp = mStampBrush->stamp()) {
-        stamp = static_cast<TileLayer*>(stamp->clone());
-        stamp->flip(TileLayer::FlipHorizontally);
-        setStampBrush(stamp);
+    if (mStampBrush->isEnabled()) {
+        if (TileLayer *stamp = mStampBrush->stamp()) {
+            stamp = static_cast<TileLayer*>(stamp->clone());
+            stamp->flip(direction);
+            setStampBrush(stamp);
+        }
+    } else if (mMapDocument) {
+        mMapDocument->flipSelectedObjects(direction);
     }
 }
 
-void MainWindow::flipStampVertically()
+void MainWindow::rotate(RotateDirection direction)
 {
-    if (TileLayer *stamp = mStampBrush->stamp()) {
-        stamp = static_cast<TileLayer*>(stamp->clone());
-        stamp->flip(TileLayer::FlipVertically);
-        setStampBrush(stamp);
-    }
-}
-
-void MainWindow::rotateStampLeft()
-{
-    if (TileLayer *stamp = mStampBrush->stamp()) {
-        stamp = static_cast<TileLayer*>(stamp->clone());
-        stamp->rotate(TileLayer::RotateLeft);
-        setStampBrush(stamp);
-    }
-}
-
-void MainWindow::rotateStampRight()
-{
-    if (TileLayer *stamp = mStampBrush->stamp()) {
-        stamp = static_cast<TileLayer*>(stamp->clone());
-        stamp->rotate(TileLayer::RotateRight);
-        setStampBrush(stamp);
+    if (mStampBrush->isEnabled()) {
+        if (TileLayer *stamp = mStampBrush->stamp()) {
+            stamp = static_cast<TileLayer*>(stamp->clone());
+            stamp->rotate(direction);
+            setStampBrush(stamp);
+        }
+    } else if (mMapDocument) {
+        mMapDocument->rotateSelectedObjects(direction);
     }
 }
 
@@ -1484,7 +1486,7 @@ void MainWindow::readSettings()
     if (!geom.isEmpty())
         restoreGeometry(geom);
     else
-        resize(800, 600);
+        resize(1000, 700);
     restoreState(mSettings.value(QLatin1String("state"),
                                  QByteArray()).toByteArray());
     mSettings.endGroup();

@@ -244,7 +244,6 @@ TilesetDock::TilesetDock(QWidget *parent):
 
     mZoomable = new Zoomable(this);
     mZoomable->setZoomFactors(QVector<qreal>() << 0.25 << 0.5 << 0.75 << 1.0 << 1.25 << 1.5 << 1.75 << 2.0 << 4.0);
-    mToolBar->addSeparator();
     mZoomComboBox = new QComboBox;
     mZoomable->connectToComboBox(mZoomComboBox);
     horizontal->addWidget(mZoomComboBox);
@@ -565,7 +564,7 @@ void TilesetDock::removeTileset(int index)
                 }
             } else if (ObjectGroup *objectGroup = layer->asObjectGroup()) {
                 foreach (MapObject *object, objectGroup->objects()) {
-                    const Tile *tile = object->tile();
+                    const Tile *tile = object->cell().tile;
                     if (tile && tile->tileset() == tileset) {
                         undoStack->push(new RemoveMapObject(mMapDocument,
                                                             object));

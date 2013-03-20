@@ -25,7 +25,7 @@ macx {
 } else:win32 {
     LIBS += -L$$OUT_PWD/../../lib
 } else {
-    QMAKE_LIBDIR += $$OUT_PWD/../../lib
+    QMAKE_LIBDIR = $$OUT_PWD/../../lib $$QMAKE_LIBDIR
 }
 
 # Make sure the Tiled executable can find libtiled
@@ -74,6 +74,7 @@ SOURCES += aboutdialog.cpp \
     erasetiles.cpp \
     filesystemwatcher.cpp \
     filltiles.cpp \
+    flipmapobjects.cpp \
     geometry.cpp \
     imagelayeritem.cpp \
     imagelayerpropertiesdialog.cpp \
@@ -121,6 +122,7 @@ SOURCES += aboutdialog.cpp \
     resizelayer.cpp \
     resizemap.cpp \
     resizemapobject.cpp \
+    rotatemapobject.cpp \
     saveasimagedialog.cpp \
     selectionrectangle.cpp \
     stampbrush.cpp \
@@ -181,6 +183,7 @@ HEADERS += aboutdialog.h \
     erasetiles.h \
     filesystemwatcher.h \
     filltiles.h \
+    flipmapobjects.h \
     geometry.h \
     imagelayeritem.h \
     imagelayerpropertiesdialog.h \
@@ -229,6 +232,7 @@ HEADERS += aboutdialog.h \
     resizelayer.h \
     resizemap.h \
     resizemapobject.h \
+    rotatemapobject.h \
     saveasimagedialog.h \
     selectionrectangle.h \
     stampbrush.h \
