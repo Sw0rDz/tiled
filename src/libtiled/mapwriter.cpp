@@ -224,7 +224,7 @@ void MapWriterPrivate::writeTileset(QXmlStreamWriter &w, const Tileset *tileset,
     if (!fileName.isEmpty()) {
         QString source = fileName;
 
-        source = mMapDir.relativeFilePath(source);
+        source = mMapDir.absoluteFilePath(source);
         w.writeAttribute(QLatin1String("source"), source);
    //     std::cout << source << std::endl;
         // Tileset is external, so no need to write any of the stuff below
