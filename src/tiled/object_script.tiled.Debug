@@ -36,6 +36,7 @@ INPUT(
 ./debug/erasetiles.o
 ./debug/filesystemwatcher.o
 ./debug/filltiles.o
+./debug/flipmapobjects.o
 ./debug/geometry.o
 ./debug/imagelayeritem.o
 ./debug/imagelayerpropertiesdialog.o
@@ -83,6 +84,7 @@ INPUT(
 ./debug/resizelayer.o
 ./debug/resizemap.o
 ./debug/resizemapobject.o
+./debug/rotatemapobject.o
 ./debug/saveasimagedialog.o
 ./debug/selectionrectangle.o
 ./debug/stampbrush.o

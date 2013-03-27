@@ -36,6 +36,7 @@ INPUT(
 ./release/erasetiles.o
 ./release/filesystemwatcher.o
 ./release/filltiles.o
+./release/flipmapobjects.o
 ./release/geometry.o
 ./release/imagelayeritem.o
 ./release/imagelayerpropertiesdialog.o
@@ -83,6 +84,7 @@ INPUT(
 ./release/resizelayer.o
 ./release/resizemap.o
 ./release/resizemapobject.o
+./release/rotatemapobject.o
 ./release/saveasimagedialog.o
 ./release/selectionrectangle.o
 ./release/stampbrush.o

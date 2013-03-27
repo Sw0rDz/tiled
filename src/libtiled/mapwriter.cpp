@@ -40,7 +40,7 @@
 #include "tilelayer.h"
 #include "tileset.h"
 #include "terrain.h"
-
+#include <iostream>
 #include <QCoreApplication>
 #include <QBuffer>
 #include <QDir>
@@ -95,7 +95,7 @@ private:
 MapWriterPrivate::MapWriterPrivate()
     : mLayerDataFormat(Map::Base64Zlib)
     , mDtdEnabled(false)
-    , mUseAbsolutePaths(false)
+    , mUseAbsolutePaths(true)
 {
 }
 
@@ -223,10 +223,10 @@ void MapWriterPrivate::writeTileset(QXmlStreamWriter &w, const Tileset *tileset,
     const QString &fileName = tileset->fileName();
     if (!fileName.isEmpty()) {
         QString source = fileName;
-        if (!mUseAbsolutePaths)
-            source = mMapDir.relativeFilePath(source);
-        w.writeAttribute(QLatin1String("source"), source);
 
+        source = mMapDir.relativeFilePath(source);
+        w.writeAttribute(QLatin1String("source"), source);
+   //     std::cout << source << std::endl;
         // Tileset is external, so no need to write any of the stuff below
         w.writeEndElement();
         return;
